@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+
+}
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String?
+  googleId      String?  @unique
+  avatar        String?
+  fcmToken      String?
+  loyaltyPoints Int      @default(0)
+  totalOrders   Int      @default(0)
+  referralCode  String   @unique
+  referredBy    String?
+  darkMode      Boolean  @default(false)
+  pushEnabled   Boolean  @default(true)
+  role          String   @default("CUSTOMER") // CUSTOMER | CAFE_OWNER | CAFE_STAFF | ADMIN
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders        Order[]
+  cart          Cart?
+  favorites     CafeFavorite[]
+  staffAt       CafeStaff[]
+  transactions  LoyaltyTransaction[]
+}
+
+// ─────────────────────────────────────────
+// CAFE
+// ─────────────────────────────────────────
+model Cafe {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  address      String
+  city         String
+  latitude     Float
+  longitude    Float
+  phone        String?
+  imageUrl     String?
+  coverUrl     String?
+  rating       Float    @default(0)
+  totalReviews Int      @default(0)
+  totalOrders  Int      @default(0)
+  isOpen       Boolean  @default(true)
+  openTime     String   @default("08:00")
+  closeTime    String   @default("22:00")
+  categories   String[] // ['coffee', 'bakery', 'tea', 'cold-brew']
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  menuItems    MenuItem[]
+  orders       Order[]
+  favorites    CafeFavorite[]
+  staff        CafeStaff[]
+  carts        Cart[]          
+
+}
+
+// ─────────────────────────────────────────
+// CAFE STAFF
+// ─────────────────────────────────────────
+model CafeStaff {
+  id     String @id @default(cuid())
+  userId String
+  cafeId String
+  role   String @default("barista") // barista | manager | owner
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cafe   Cafe   @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cafeId])
+}
+
+// ─────────────────────────────────────────
+// CAFE FAVORITE
+// ─────────────────────────────────────────
+model CafeFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  cafeId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cafe      Cafe     @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cafeId])
+}
+
+// ─────────────────────────────────────────
+// MENU ITEM
+// ─────────────────────────────────────────
+model MenuItem {
+  id                   String   @id @default(cuid())
+  cafeId               String
+  name                 String
+  description          String?
+  price                Float
+  imageUrl             String?
+  category             String   // espresso | cold_brew | tea | food | dessert
+  isAvailable          Boolean  @default(true)
+  isPopular            Boolean  @default(false)
+  customizationOptions Json?
+  // e.g. { sizes: ['Small','Medium','Large'], milk: ['Whole','Oat','Almond'], sugar: ['None','Less','Normal','Extra'] }
+  createdAt            DateTime @default(now())
+
+  cafe                 Cafe       @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+  cartItems            CartItem[]
+  orderItems           OrderItem[]
+}
+
+// ─────────────────────────────────────────
+// CART
+// ─────────────────────────────────────────
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  cafeId    String
+  updatedAt DateTime   @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cafe      Cafe       @relation(fields: [cafeId], references: [id])
+  items     CartItem[]
+}
+
+model CartItem {
+  id             String   @id @default(cuid())
+  cartId         String
+  menuItemId     String
+  quantity       Int
+  unitPrice      Float
+  customizations Json?    // { size: 'Large', milk: 'Oat', sugar: 'Less' }
+
+  cart           Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menuItem       MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+// ─────────────────────────────────────────
+// ORDER
+// ─────────────────────────────────────────
+model Order {
+  id              String    @id @default(cuid())
+  userId          String
+  cafeId          String
+  orderType       String    // pickup | dine_in | delivery
+  status          String    @default("pending") // pending | accepted | preparing | ready | completed | cancelled
+  paymentMethod   String    // stripe | jazzcash | cash
+  paymentStatus   String    @default("pending") // pending | paid | failed | refunded
+  stripePaymentId String?
+  jazzCashTxnRef  String?
+  subtotal        Float
+  discount        Float     @default(0)
+  loyaltyDiscount Float     @default(0)
+  deliveryFee     Float     @default(0)
+  total           Float
+  pointsEarned    Int       @default(0)
+  couponCode      String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id])
+  cafe            Cafe      @relation(fields: [cafeId], references: [id])
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  menuItemId     String
+  name           String   // snapshot at time of order
+  quantity       Int
+  unitPrice      Float
+  customizations Json?
+
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem       MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+// ─────────────────────────────────────────
+// LOYALTY
+// ─────────────────────────────────────────
+model LoyaltyTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int      // positive = earned, negative = spent
+  type      String   // order_earn | redeem | referral_bonus | signup_bonus
+  orderId   String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────
+// COUPON
+// ─────────────────────────────────────────
+model Coupon {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  type      String    // percent | fixed
+  value     Float
+  minOrder  Float     @default(0)
+  maxUses   Int?
+  usedCount Int       @default(0)
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+}

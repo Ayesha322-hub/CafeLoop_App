@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+tsconfig.build.tsbuildinfo
+
+# optional: ignore duplicate/old folders if not needed
+cafeloop-FINAL/
+cafeloop-backend/
