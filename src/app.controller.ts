@@ -4,22 +4,8 @@ import { Public } from './common/decorators/public.decorator';
 @Controller()
 export class AppController {
   @Public()
-  @Get()
-  root() {
-    return {
-      status: 'ok',
-      app: 'CaféLoop API',
-      message: 'API is running',
-    };
-  }
-
-  @Public()
   @Get('health')
   health() {
-    return {
-      status: 'ok',
-      app: 'CaféLoop API',
-      timestamp: new Date().toISOString(),
-    };
+    return { status: 'ok', app: 'CaféLoop API', timestamp: new Date().toISOString() };
   }
 }
