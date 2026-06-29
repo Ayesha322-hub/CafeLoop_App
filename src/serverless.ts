@@ -1,7 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import serverlessExpress from '@vendia/serverless-express';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import express from 'express';
 
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -11,7 +12,12 @@ let cachedServer: any;
 
 async function bootstrap() {
   if (!cachedServer) {
-    const app = await NestFactory.create(AppModule);
+    const expressApp = express();
+
+    const app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(expressApp),
+    );
 
     app.enableCors({
       origin: [
@@ -49,8 +55,7 @@ async function bootstrap() {
 
     await app.init();
 
-    const expressApp = app.getHttpAdapter().getInstance();
-    cachedServer = serverlessExpress({ app: expressApp });
+    cachedServer = expressApp;
   }
 
   return cachedServer;
